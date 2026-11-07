@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ReviCor ME – Restaure e colorize suas fotos</title>
+<style>
+:root{--bg:#0f1020;--card:rgba(255,255,255,.07);--bd:rgba(255,255,255,.14);--tx:#f3f4ff;--mu:#a9adcf;--a:#8b5cf6;--b:#ec4899;--c:#f59e0b}
+*{box-sizing:border-box;margin:0}
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:radial-gradient(circle at 15% 10%,#2b1b5a,transparent 45%),radial-gradient(circle at 90% 90%,#5a1b45,transparent 45%),var(--bg);color:var(--tx);min-height:100vh;display:flex;flex-direction:column}
+header{padding:18px 24px;display:flex;justify-content:space-between;align-items:center}
+.logo{font-weight:800;font-size:1.4rem;background:linear-gradient(90deg,var(--a),var(--b),var(--c));-webkit-background-clip:text;background-clip:text;color:transparent}
+main{flex:1;width:100%;max-width:980px;margin:0 auto;padding:12px 18px 30px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:20px;padding:24px;backdrop-filter:blur(12px)}
+h1{font-size:clamp(1.5rem,4vw,2.2rem);margin-bottom:8px}
+p.sub{color:var(--mu);margin-bottom:18px}
+input,select{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--bd);background:rgba(0,0,0,.25);color:var(--tx);font-size:1rem;margin-bottom:12px}
+button{cursor:pointer;border:0;border-radius:12px;padding:12px 20px;font-size:1rem;font-weight:700;color:#fff;background:linear-gradient(90deg,var(--a),var(--b))}
+button.sec{background:rgba(255,255,255,.12)}
+button:disabled{opacity:.5;cursor:not-allowed}
+.tabs{display:flex;gap:8px;margin-bottom:16px}.tabs button{flex:1}
+#auth{max-width:420px;margin:30px auto}
+#auth button.main{width:100%;margin-bottom:10px}
+.msg{color:#fca5a5;font-size:.9rem;min-height:1.2em;margin-bottom:8px}
+.drop{border:2px dashed var(--bd);border-radius:18px;padding:36px 16px;text-align:center;cursor:pointer;transition:.2s}
+.drop:hover,.drop.on{border-color:var(--b);background:rgba(236,72,153,.08)}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:18px 0;align-items:end}
+.opts label{font-size:.9rem;color:var(--mu);display:block}
+.chk{display:flex;gap:8px;align-items:center;color:var(--tx)!important}.chk input{width:auto;margin:0}
+.stage{position:relative;margin:18px auto 8px;max-width:100%;border-radius:16px;overflow:hidden;line-height:0;background:#000}
+.stage canvas{width:100%;height:auto;display:block}
+#cOut{position:absolute;inset:0}
+.hint{display:flex;justify-content:space-between;font-size:.8rem;color:var(--mu);margin-bottom:4px}
+.bar{height:6px;background:rgba(255,255,255,.12);border-radius:9px;overflow:hidden;margin:10px 0}.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--a),var(--b));transition:width .2s}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.hide{display:none!important}
+footer{text-align:center;padding:18px;color:var(--mu);font-size:.9rem;border-top:1px solid var(--bd)}
+</style>
+</head>
+<body>
+<header><div class="logo">ReviCor ME</div><div id="user" class="hide"><span id="uname" style="color:var(--mu);margin-right:10px"></span><button class="sec" onclick="sair()">Sair</button></div></header>
+<main>
+
+<section id="auth" class="card">
+  <h1>Bem-vindo</h1><p class="sub">Entre para restaurar e colorir suas fotos.</p>
+  <div class="tabs"><button id="tL" onclick="aba('l')">Entrar</button><button id="tC" class="sec" onclick="aba('c')">Criar conta</button></div>
+  <input id="em" type="email" placeholder="E-mail" autocomplete="email">
+  <input id="pw" type="password" placeholder="Senha (mínimo 6 caracteres)" autocomplete="current-password">
+  <div id="amsg" class="msg"></div>
+  <button class="main" id="go" onclick="enviarAuth()">Entrar</button>
+  <div id="gbtn" style="margin-top:6px"></div>
+  <button class="sec main hide" id="gfake" onclick="googleInfo()">Entrar com o Google</button>
+</section>
+
+<section id="app" class="hide">
+  <div class="card">
+    <h1>Restaure e dê cor às suas memórias</h1>
+    <p class="sub">Envie uma foto antiga em preto e branco. O processamento é feito no seu aparelho: nada é enviado para a internet.</p>
+    <div class="drop" id="drop"><b>Toque ou arraste a foto aqui</b><br><span style="color:var(--mu)">JPG, PNG ou WEBP</span></div>
+    <input id="file" type="file" accept="image/*" class="hide">
+    <div id="work" class="hide">
+      <div class="opts">
+        <label class="chk"><input type="checkbox" id="oR" checked> Restaurar (ruído, riscos, contraste, nitidez)</label>
+        <label class="chk"><input type="checkbox" id="oC" checked> Colorir</label>
+        <div><label>Método de colorização</label><select id="oM"><option value="ai">IA DDColor (melhor qualidade)</option><option value="h">Rápido, sem IA (cores aproximadas)</option></select></div>
+        <div><label>Estilo (modo rápido)</label><select id="oT"><option value="n">Natural</option><option value="q">Quente (tom de pele dourado)</option><option value="f">Frio</option><option value="v">Vintage</option></select></div>
+        <div><label>Intensidade da cor: <span id="iv">70</span>%</label><input type="range" id="oI" min="0" max="100" value="70" oninput="iv.textContent=this.value"></div>
+      </div>
+      <button id="run" onclick="processar()">✨ Restaurar e colorir</button>
+      <div class="bar hide" id="bar"><i id="bi"></i></div><div id="bt" class="hint"></div>
+      <div id="res" class="hide">
+        <div class="stage" id="stage"><canvas id="cIn"></canvas><canvas id="cOut"></canvas></div>
+        <div class="hint"><span>◀ Resultado</span><span>Original ▶</span></div>
+        <input type="range" id="cmp" min="0" max="100" value="100" oninput="cmpUp()">
+        <div class="row"><button onclick="baixar()">⬇ Baixar foto (PNG)</button><button class="sec" onclick="novaFoto()">Nova foto</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+<footer>Aplicativo original de Matheus Eliseu</footer>
+
+<script>
+/* ====== CONFIGURAÇÃO ======
+   Para ativar o login com Google, crie um "ID de cliente OAuth" (Aplicativo da Web) em
+   console.cloud.google.com e cole abaixo. Sem isso, o botão do Google fica desativado. */
+const GOOGLE_CLIENT_ID = "";
+
+const $ = id => document.getElementById(id);
+let modo = 'l', img = null;
+const MAXLADO = 1600;
+
+/* ---------- Login local (guardado só neste navegador) ---------- */
+const getUsers = () => { try { return JSON.parse(localStorage.getItem('revicor_users') || '{}'); } catch (e) { return {}; } };
+const setUsers = u => { try { localStorage.setItem('revicor_users', JSON.stringify(u)); } catch (e) {} };
+async function hash(s) {
+  try { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('revicor:' + s));
+    return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); }
+  catch (e) { let h = 5381; for (const c of s) h = (h * 33) ^ c.charCodeAt(0); return 'f' + (h >>> 0); }
+}
+function aba(m) {
+  modo = m; $('tL').className = m == 'l' ? '' : 'sec'; $('tC').className = m == 'c' ? '' : 'sec';
+  $('go').textContent = m == 'l' ? 'Entrar' : 'Criar conta'; $('amsg').textContent = '';
+}
+async function enviarAuth() {
+  const e = $('em').value.trim().toLowerCase(), p = $('pw').value;
+  if (!/^\S+@\S+\.\S+$/.test(e)) return $('amsg').textContent = 'Digite um e-mail válido.';
+  if (p.length < 6) return $('amsg').textContent = 'A senha precisa ter ao menos 6 caracteres.';
+  const u = getUsers(), h = await hash(p);
+  if (modo == 'c') {
+    if (u[e]) return $('amsg').textContent = 'Este e-mail já está cadastrado.';
+    u[e] = h; setUsers(u); entrar(e);
+  } else {
+    if (!u[e] || u[e] !== h) return $('amsg').textContent = 'E-mail ou senha incorretos.';
+    entrar(e);
+  }
+}
+function entrar(nome) {
+  try { sessionStorage.setItem('revicor_sess', nome); } catch (e) {}
+  $('auth').classList.add('hide'); $('app').classList.remove('hide');
+  $('user').classList.remove('hide'); $('uname').textContent = nome;
+}
+function sair() { try { sessionStorage.removeItem('revicor_sess'); } catch (e) {} location.reload(); }
+function googleInfo() {
+  $('amsg').textContent = location.protocol === 'file:'
+    ? 'O login com Google só funciona com o site hospedado em https (não abrindo o arquivo direto). Use e-mail e senha ou hospede o site.'
+    : 'Login com Google ainda não configurado: cole seu ID de cliente em GOOGLE_CLIENT_ID no código.';
+}
+function iniciarGoogle() {
+  if (!GOOGLE_CLIENT_ID || location.protocol === 'file:') { $('gfake').classList.remove('hide'); return; }
+  const s = document.createElement('script'); s.src = 'https://accounts.google.com/gsi/client'; s.async = true;
+  s.onload = () => {
+    try { google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: r => {
+      try { const d = JSON.parse(decodeURIComponent(escape(atob(r.credential.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))))); entrar(d.email || d.name); } catch (e) { $('amsg').textContent = 'Falha no login com Google.'; } } });
+    google.accounts.id.renderButton($('gbtn'), { theme: 'outline', size: 'large', width: 340, text: 'signin_with', locale: 'pt-BR' }); } catch (e) { $('gfake').classList.remove('hide'); }
+  };
+  s.onerror = () => $('gfake').classList.remove('hide');
+  document.head.appendChild(s);
+}
+try { const s = sessionStorage.getItem('revicor_sess'); if (s) entrar(s); } catch (e) {}
+iniciarGoogle();
+
+/* ---------- Upload ---------- */
+const drop = $('drop'), file = $('file');
+drop.onclick = () => file.click();
+file.onchange = () => file.files[0] && carregar(file.files[0]);
+['dragover', 'dragenter'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('on'); }));
+['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('on'); }));
+drop.addEventListener('drop', e => e.dataTransfer.files[0] && carregar(e.dataTransfer.files[0]));
+function carregar(f) {
+  if (!f.type.startsWith('image/')) return alert('Escolha um arquivo de imagem.');
+  const im = new Image();
+  im.onload = () => {
+    let w = im.naturalWidth, h = im.naturalHeight, k = Math.min(1, MAXLADO / Math.max(w, h));
+    w = Math.round(w * k); h = Math.round(h * k);
+    for (const c of [$('cIn'), $('cOut')]) { c.width = w; c.height = h; }
+    $('cIn').getContext('2d').drawImage(im, 0, 0, w, h);
+    img = { w, h }; URL.revokeObjectURL(im.src);
+    $('work').classList.remove('hide'); $('res').classList.add('hide'); drop.classList.add('hide');
+    $('stage').parentElement.classList.remove('hide');
+  };
+  im.src = URL.createObjectURL(f);
+}
+function novaFoto() { img = null; file.value = ''; $('work').classList.add('hide'); drop.classList.remove('hide'); }
+
+/* ---------- Processamento ---------- */
+function boxBlur(a, w, h, r) {
+  const t = new Float32Array(a.length), o = new Float32Array(a.length), n = 2 * r + 1;
+  for (let y = 0; y < h; y++) {
+    let s = 0; const row = y * w;
+    for (let x = -r; x <= r; x++) s += a[row + Math.min(w - 1, Math.max(0, x))];
+    for (let x = 0; x < w; x++) {
+      t[row + x] = s / n;
+      s += a[row + Math.min(w - 1, x + r + 1)] - a[row + Math.max(0, x - r)];
+    }
+  }
+  for (let x = 0; x < w; x++) {
+    let s = 0;
+    for (let y = -r; y <= r; y++) s += t[Math.min(h - 1, Math.max(0, y)) * w + x];
+    for (let y = 0; y < h; y++) {
+      o[y * w + x] = s / n;
+      s += t[Math.min(h - 1, y + r + 1) * w + x] - t[Math.max(0, y - r) * w + x];
+    }
+  }
+  return o;
+}
+const lerp = (a, b, t) => a + (b - a) * t;
+const pausa = () => new Promise(r => setTimeout(r, 20));
+const prog = p => $('bi').style.width = p + '%';
+
+/* paletas [luminância 0-255, Cb, Cr] por estilo */
+const PAL = {
+  n: [[0,126,132],[50,122,136],[100,114,145],[150,111,148],[200,115,142],[240,126,130],[255,128,128]],
+  q: [[0,125,134],[50,120,139],[100,111,148],[150,107,152],[200,113,145],[240,125,131],[255,128,128]],
+  f: [[0,130,128],[50,128,130],[100,121,138],[150,117,143],[200,119,138],[240,127,129],[255,128,128]],
+  v: [[0,124,133],[50,120,137],[100,116,142],[150,113,144],[200,117,139],[240,126,130],[255,128,128]]
+};
+function pal(p, y) {
+  for (let i = 1; i < p.length; i++) if (y <= p[i][0]) {
+    const t = (y - p[i-1][0]) / (p[i][0] - p[i-1][0]);
+    return [lerp(p[i-1][1], p[i][1], t), lerp(p[i-1][2], p[i][2], t)];
+  }
+  return [128, 128];
+}
+
+
+/* ---------- Colorização por IA (DDColor, roda no navegador) ---------- */
+const MODEL_URL = 'https://huggingface.co/edgetools/ddcolor/resolve/main/ddcolor-tiny-fp16.onnx';
+const ORT_BASE = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/';
+let sess = null;
+async function carregarModelo() {
+  if (sess) return sess;
+  if (!window.ort) await new Promise((ok, er) => { const t = document.createElement('script'); t.src = ORT_BASE + 'ort.min.js'; t.onload = ok; t.onerror = () => er(new Error('ort')); document.head.appendChild(t); });
+  ort.env.wasm.wasmPaths = ORT_BASE;
+  let buf = null, cache = null;
+  try { cache = await caches.open('revicor-modelo'); const hit = await cache.match(MODEL_URL); if (hit) buf = new Uint8Array(await hit.arrayBuffer()); } catch (e) {}
+  if (!buf) {
+    const r = await fetch(MODEL_URL); if (!r.ok) throw new Error('download');
+    const tot = +r.headers.get('content-length') || 135e6, rd = r.body.getReader(), parts = []; let got = 0;
+    for (;;) { const { done, value } = await rd.read(); if (done) break; parts.push(value); got += value.length;
+      $('bt').textContent = 'Baixando o modelo de IA (só na 1ª vez): ' + Math.round(got / 1e6) + ' MB'; prog(5 + Math.min(30, got / tot * 30)); }
+    buf = new Uint8Array(got); let o = 0; for (const q of parts) { buf.set(q, o); o += q.length; }
+    try { await cache.put(MODEL_URL, new Response(buf)); } catch (e) {}
+  }
+  $('bt').textContent = 'Preparando a IA…'; await pausa();
+  sess = await ort.InferenceSession.create(buf, { executionProviders: ['wasm'] });
+  return sess;
+}
+const finv = t => t > 0.206897 ? t * t * t : (t - 16 / 116) / 7.787;
+const gam = c => { c = Math.max(0, Math.min(1, c)); return 255 * (c <= .0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - .055); };
+async function colorirIA(Y, w, h, k) {
+  const s = await carregarModelo(), S = 512, N = w * h;
+  const g = document.createElement('canvas'); g.width = w; g.height = h;
+  const gc = g.getContext('2d'), gi = gc.createImageData(w, h);
+  for (let i = 0; i < N; i++) { const v = Math.min(255, Math.max(0, Y[i])); gi.data[i*4] = gi.data[i*4+1] = gi.data[i*4+2] = v; gi.data[i*4+3] = 255; }
+  gc.putImageData(gi, 0, 0);
+  const sm = document.createElement('canvas'); sm.width = S; sm.height = S;
+  const sc = sm.getContext('2d'); sc.drawImage(g, 0, 0, S, S);
+  const sd = sc.getImageData(0, 0, S, S).data, inp = new Float32Array(3 * S * S);
+  for (let i = 0; i < S * S; i++) { const v = sd[i*4] / 255; inp[i] = inp[S*S + i] = inp[2*S*S + i] = v; }
+  $('bt').textContent = 'Colorindo com IA… (pode levar de alguns segundos a 1 minuto)'; prog(45); await pausa();
+  const res = await s.run({ [s.inputNames[0]]: new ort.Tensor('float32', inp, [1, 3, S, S]) });
+  const ab = res[s.outputNames[0]].data; prog(80);
+  const q = document.createElement('canvas'); q.width = S; q.height = S;
+  const qc = q.getContext('2d'), qi = qc.createImageData(S, S);
+  for (let i = 0; i < S * S; i++) { qi.data[i*4] = Math.min(255, Math.max(0, ab[i] + 128)); qi.data[i*4+1] = Math.min(255, Math.max(0, ab[S*S + i] + 128)); qi.data[i*4+2] = 128; qi.data[i*4+3] = 255; }
+  qc.putImageData(qi, 0, 0);
+  const big = document.createElement('canvas'); big.width = w; big.height = h;
+  const bc = big.getContext('2d'); bc.imageSmoothingQuality = 'high'; bc.drawImage(q, 0, 0, w, h);
+  const bd = bc.getImageData(0, 0, w, h).data, out = new ImageData(w, h), od = out.data;
+  const LUT = new Float32Array(256);
+  for (let v = 0; v < 256; v++) { const c = v / 255, l = c <= .04045 ? c / 12.92 : Math.pow((c + .055) / 1.055, 2.4); LUT[v] = l > .008856 ? 116 * Math.cbrt(l) - 16 : 903.3 * l; }
+  for (let i = 0; i < N; i++) {          // mantém o brilho (L) da foto restaurada e só aplica a cor (a, b)
+    const L = LUT[Math.min(255, Math.max(0, Math.round(Y[i])))], a = (bd[i*4] - 128) * k, b = (bd[i*4+1] - 128) * k;
+    const fy = (L + 16) / 116, X = .95047 * finv(fy + a / 500), Yy = finv(fy), Z = 1.08883 * finv(fy - b / 200);
+    od[i*4]   = gam(3.2406 * X - 1.5372 * Yy - .4986 * Z);
+    od[i*4+1] = gam(-.9689 * X + 1.8758 * Yy + .0415 * Z);
+    od[i*4+2] = gam(.0557 * X - .2040 * Yy + 1.0570 * Z);
+    od[i*4+3] = 255;
+  }
+  return out;
+}
+
+async function processar() {
+  if (!img) return;
+  const { w, h } = img, N = w * h;
+  $('run').disabled = true; $('bar').classList.remove('hide'); prog(5); await pausa();
+  const src = $('cIn').getContext('2d').getImageData(0, 0, w, h), d = src.data;
+  let Y = new Float32Array(N), cb0 = new Float32Array(N), cr0 = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    const r = d[i*4], g = d[i*4+1], b = d[i*4+2];
+    Y[i] = .299*r + .587*g + .114*b;
+    cb0[i] = 128 - .168736*r - .331264*g + .5*b;
+    cr0[i] = 128 + .5*r - .418688*g - .081312*b;
+  }
+  /* 1) Restauração: preserva a estrutura (só limpa e realça a luminância) */
+  if ($('oR').checked) {
+    const b3 = boxBlur(Y, w, h, 1); prog(20); await pausa();
+    for (let i = 0; i < N; i++) {           // remove riscos e pontos isolados
+      const df = Math.abs(Y[i] - b3[i]);
+      if (df > 28) Y[i] = b3[i];
+      else if (df < 9) Y[i] = lerp(Y[i], b3[i], .55);  // suaviza ruído só em áreas lisas
+    }
+    const hist = new Uint32Array(256);
+    for (let i = 0; i < N; i++) hist[Y[i] | 0]++;
+    let lo = 0, hi = 255, s = 0;
+    while (lo < 255 && (s += hist[lo]) < N * .005) lo++;
+    s = 0; while (hi > 0 && (s += hist[hi]) < N * .005) hi--;
+    if (hi - lo > 30) for (let i = 0; i < N; i++) Y[i] = Math.min(255, Math.max(0, (Y[i] - lo) * 255 / (hi - lo)));
+    prog(40); await pausa();
+    const bl = boxBlur(Y, w, h, 2);        // nitidez suave (unsharp mask)
+    for (let i = 0; i < N; i++) Y[i] = Math.min(255, Math.max(0, Y[i] + .55 * (Y[i] - bl[i])));
+  }
+  /* 2) Colorização: só adiciona croma, nunca altera formas, rosto, cabelo ou olhar */
+  let aiRGB = null;
+  if ($('oC').checked && $('oM').value === 'ai') {
+    try { aiRGB = await colorirIA(Y, w, h, Math.max(.3, $('oI').value / 100 * 1.3)); }
+    catch (e) { console.error(e); alert('Não foi possível usar a IA (verifique a conexão com a internet). Vou usar o modo rápido.'); }
+  }
+  let Cb = cb0, Cr = cr0;
+  if ($('oC').checked && !aiRGB) {
+    const p = PAL[$('oT').value], k = $('oI').value / 100;
+    Cb = new Float32Array(N); Cr = new Float32Array(N);
+    const loc = boxBlur(Y, w, h, 3); prog(55); await pausa();
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = y * w + x, yy = Y[i];
+      let [cb, cr] = pal(p, yy);
+      const liso = Math.abs(yy - loc[i]) < 5;
+      if (y < h * .38 && yy > 140 && yy < 235 && liso) {            // céu / fundo claro e liso no topo
+        const t = Math.min(1, (h * .38 - y) / (h * .2)) * .85; cb = lerp(cb, 150, t); cr = lerp(cr, 118, t);
+      } else if (y > h * .75 && yy > 60 && yy < 150 && liso) {      // vegetação/chão liso na base
+        cb = lerp(cb, 112, .5); cr = lerp(cr, 118, .5);
+      }
+      Cb[i] = lerp(128, cb, k); Cr[i] = lerp(128, cr, k);
+    }
+    prog(75); await pausa();
+    Cb = boxBlur(Cb, w, h, 7); Cr = boxBlur(Cr, w, h, 7);          // cor suave, sem manchas
+  }
+  /* 3) Monta a imagem final */
+  const out = $('cOut').getContext('2d'), o = out.createImageData(w, h), od = o.data;
+  for (let i = 0; i < N; i++) {
+    const y = Y[i], cb = Cb[i] - 128, cr = Cr[i] - 128;
+    od[i*4]   = Math.min(255, Math.max(0, y + 1.402 * cr));
+    od[i*4+1] = Math.min(255, Math.max(0, y - .344136 * cb - .714136 * cr));
+    od[i*4+2] = Math.min(255, Math.max(0, y + 1.772 * cb));
+    od[i*4+3] = 255;
+  }
+  out.putImageData(aiRGB || o, 0, 0); prog(100); $('bt').textContent = '';
+  $('res').classList.remove('hide'); $('cmp').value = 0; cmpUp();
+  setTimeout(() => { $('bar').classList.add('hide'); prog(0); }, 400);
+  $('run').disabled = false;
+}
+function cmpUp() { $('cOut').style.clipPath = `inset(0 ${$('cmp').value}% 0 0)`; }
+function baixar() {
+  const a = document.createElement('a'); a.download = 'foto-restaurada-revicor-me.png';
+  a.href = $('cOut').toDataURL('image/png'); a.click();
+}
+</script>
+</body>
+</html>
